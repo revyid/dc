@@ -4,17 +4,16 @@
     "module": "ES2020",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
+    "rootDir": "./",
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "allowJs": true,
+    "checkJs": false,
     "moduleResolution": "node"
   },
-  "include": ["src"],
-  "exclude": ["node_modules"]
+  "include": ["src", "setup-admin.js"],
+  "exclude": ["node_modules", "dist"]
 }

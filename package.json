@@ -12,7 +12,7 @@
     "bot": "node src/index.js",
     "bot-only": "node src/index.js",
     "web-only": "node src/web/server.js",
-    "build": "tsc"
+    "build": "echo 'No build needed - pure JavaScript project'"
   },
   "keywords": [
     "discord",
