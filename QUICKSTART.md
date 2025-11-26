@@ -1,9 +1,118 @@
-# 🚀 Quick Start Guide
+# 🚀 Quick Start Guide - Bot + Dashboard
 
-## 1️⃣ Initial Setup (5 minutes)
+Get your Discord Bot + Admin Dashboard running in 5 minutes!
 
-### Step 1: Configuration
-Edit `.env` file dengan bot token dan settings:
+## ⚡ 5-Minute Setup
+
+### 1️⃣ Install Dependencies
+```bash
+npm install
+```
+
+### 2️⃣ Create Admin Account
+```bash
+npm run setup
+```
+Follow prompts for username and password.
+
+### 3️⃣ Update .env (if needed)
+Verify these are set in `.env`:
+```env
+DISCORD_TOKEN=your_token
+CLIENT_ID=your_client_id
+DATABASE_URL=postgresql://neondb_owner:npg_R92zpKrqTHiS@ep-winter-firefly-a1aot6x0-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+JWT_SECRET=your-secret-key
+```
+
+### 4️⃣ Start Everything
+```bash
+npm start
+```
+
+### 5️⃣ Access Dashboard
+- 🌐 Open: http://localhost:3000
+- 🔑 Login with your admin credentials
+- ✅ You're done!
+
+---
+
+## 📋 What Just Started?
+
+| Service | URL | Status |
+|---------|-----|--------|
+| 🤖 Discord Bot | Discord.com | ✅ Connected |
+| 📊 Dashboard | localhost:3000 | ✅ Running |
+| 🗄️ Database | Neon PostgreSQL | ✅ Connected |
+
+---
+
+## 🎯 Quick Commands
+
+### Development
+```bash
+npm start          # Run bot + dashboard
+npm run bot        # Just the bot
+npm run web        # Just the dashboard
+npm run setup      # Create admin account
+```
+
+### Deployment
+```bash
+vercel             # Deploy dashboard to Vercel
+```
+
+---
+
+## 📊 Dashboard Features
+
+After login, you can see:
+
+✅ **Statistics**
+- Total guilds
+- Total users  
+- 24h activity
+
+✅ **Activity Logs**
+- Recent actions
+- Timestamp & details
+- Filterable by action type
+
+✅ **Moderation Logs**
+- Warnings issued
+- Kicks & timeouts
+- Moderator info
+
+---
+
+## 🐛 Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Connection refused | Check DATABASE_URL in .env |
+| Cannot find module | Run `npm install` again |
+| Admin login fails | Run `npm run setup` to create new admin |
+| Port 3000 in use | Change PORT in .env |
+
+---
+
+## 📚 Need More Info?
+
+- **Full Documentation**: See `DASHBOARD_README.md`
+- **Database Migration**: See `MIGRATION_GUIDE.md`
+- **Original Bot Docs**: See `README.md`
+
+---
+
+## ✨ What's Next?
+
+1. Configure bot settings via `/settings` command
+2. Deploy dashboard to Vercel
+3. Deploy bot to Railway/Heroku/VPS
+4. Invite bot to your Discord servers
+
+---
+
+**Ready to go! 🎉**
 
 ```env
 DISCORD_TOKEN=your_bot_token
