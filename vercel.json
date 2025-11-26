@@ -23,6 +23,11 @@
   "env": {
     "DATABASE_URL": "@database_url",
     "JWT_SECRET": "@jwt_secret",
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "PORT": "3000"
+  },
+  "envEng": {
+    "database_url": "postgresql://neondb_owner:npg_R92zpKrqTHiS@ep-winter-firefly-a1aot6x0-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "jwt_secret": "Your JWT secret key"
   }
 }
