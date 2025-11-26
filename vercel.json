@@ -21,7 +21,7 @@
     }
   ],
   "env": {
-    "DATABASE_URL": "@database_url",
+    "DATABASE_URL": "@DATABASE_URL",
     "JWT_SECRET": "@jwt_secret",
     "NODE_ENV": "production",
     "PORT": "3000"
