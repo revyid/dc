@@ -1,8 +1,8 @@
-import { getGuildSettings, db } from '../utils/database.js';
+import { getGuildSettings, logActivity } from '../utils/database.js';
 
 export default {
   name: 'guildMemberAdd',
-  execute(client, member) {
+  async execute(client, member) {
     try {
       const settings = getGuildSettings(member.guild.id);
       const channelId = settings?.welcome_channel;
@@ -38,12 +38,10 @@ export default {
         }],
       });
 
-      const userStmt = db.prepare(`
-        INSERT INTO user_statistics (guild_id, user_id, joined_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(guild_id, user_id) DO NOTHING
-      `);
-      userStmt.run(member.guild.id, member.user.id);
+      // Log activity asynchronously without blocking
+      await logActivity(member.guild.id, member.user.id, 'member_join', `${member.user.tag} joined the server`).catch(error => {
+        console.error('Failed to log member join:', error);
+      });
     } catch (error) {
       console.error(`Failed to send welcome message in ${member.guild.name}:`, error);
     }

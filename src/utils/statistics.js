@@ -1,4 +1,4 @@
-import { db } from './database.js';
+import { pool } from './database.js';
 
 /**
  * Initialize or update user statistics
@@ -6,38 +6,48 @@ import { db } from './database.js';
  * @param {string} userId - User ID
  * @param {Object} data - Data to update (e.g., { messages_sent: 1, commands_used: 0 })
  */
-export const updateUserStatistics = (guildId, userId, data = {}) => {
+export const updateUserStatistics = async (guildId, userId, data = {}) => {
   try {
     if (!guildId || !userId) return;
 
-    // Check if user exists
-    const checkStmt = db.prepare(`
-      SELECT id FROM user_statistics 
-      WHERE guild_id = ? AND user_id = ?
-    `);
-    const existing = checkStmt.get(guildId, userId);
+    // Ensure guild exists in guild_settings first
+    const guildExists = await pool.query(
+      'SELECT 1 FROM guild_settings WHERE guild_id = $1',
+      [guildId]
+    );
 
-    if (!existing) {
+    if (guildExists.rows.length === 0) {
+      // Create default guild settings if it doesn't exist
+      await pool.query(
+        'INSERT INTO guild_settings (guild_id, prefix) VALUES ($1, $2) ON CONFLICT(guild_id) DO NOTHING',
+        [guildId, '!']
+      );
+    }
+
+    // Check if user exists
+    const existing = await pool.query(
+      'SELECT id FROM user_statistics WHERE guild_id = $1 AND user_id = $2',
+      [guildId, userId]
+    );
+
+    if (existing.rows.length === 0) {
       // Create new entry
-      const insertStmt = db.prepare(`
-        INSERT INTO user_statistics (guild_id, user_id, messages_sent, commands_used, joined_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `);
       const messagesSent = data.messages_sent || 0;
       const commandsUsed = data.commands_used || 0;
-      insertStmt.run(guildId, userId, messagesSent, commandsUsed);
+      await pool.query(
+        'INSERT INTO user_statistics (guild_id, user_id, messages_sent, commands_used, joined_at) VALUES ($1, $2, $3, $4, NOW())',
+        [guildId, userId, messagesSent, commandsUsed]
+      );
     } else {
       // Update existing entry
       const keys = Object.keys(data);
       if (keys.length > 0) {
-        const setClause = keys.map(k => `${k} = ${k} + ?`).join(', ');
-        const updateStmt = db.prepare(`
-          UPDATE user_statistics 
-          SET ${setClause}, last_message = CURRENT_TIMESTAMP
-          WHERE guild_id = ? AND user_id = ?
-        `);
+        const setClause = keys.map((k, i) => `${k} = ${k} + $${i + 1}`).join(', ');
         const values = Object.values(data);
-        updateStmt.run(...values, guildId, userId);
+        await pool.query(
+          `UPDATE user_statistics SET ${setClause}, last_message = NOW() WHERE guild_id = $${keys.length + 1} AND user_id = $${keys.length + 2}`,
+          [...values, guildId, userId]
+        );
       }
     }
   } catch (error) {
@@ -51,7 +61,9 @@ export const updateUserStatistics = (guildId, userId, data = {}) => {
  * @param {string} userId - User ID
  */
 export const trackMessage = (guildId, userId) => {
-  updateUserStatistics(guildId, userId, { messages_sent: 1 });
+  updateUserStatistics(guildId, userId, { messages_sent: 1 }).catch(error => {
+    console.error('Error tracking message:', error);
+  });
 };
 
 /**
@@ -60,7 +72,9 @@ export const trackMessage = (guildId, userId) => {
  * @param {string} userId - User ID
  */
 export const trackCommand = (guildId, userId) => {
-  updateUserStatistics(guildId, userId, { commands_used: 1 });
+  updateUserStatistics(guildId, userId, { commands_used: 1 }).catch(error => {
+    console.error('Error tracking command:', error);
+  });
 };
 
 /**
@@ -69,13 +83,13 @@ export const trackCommand = (guildId, userId) => {
  * @param {string} userId - User ID
  * @returns {Object} - User statistics or null
  */
-export const getUserStatistics = (guildId, userId) => {
+export const getUserStatistics = async (guildId, userId) => {
   try {
-    const stmt = db.prepare(`
-      SELECT * FROM user_statistics 
-      WHERE guild_id = ? AND user_id = ?
-    `);
-    return stmt.get(guildId, userId) || null;
+    const result = await pool.query(
+      'SELECT * FROM user_statistics WHERE guild_id = $1 AND user_id = $2',
+      [guildId, userId]
+    );
+    return result.rows[0] || null;
   } catch (error) {
     console.error('Error getting user statistics:', error);
     return null;
@@ -88,16 +102,13 @@ export const getUserStatistics = (guildId, userId) => {
  * @param {number} limit - Number of top users to return
  * @returns {Array} - Array of top users
  */
-export const getTopActiveUsers = (guildId, limit = 10) => {
+export const getTopActiveUsers = async (guildId, limit = 10) => {
   try {
-    const stmt = db.prepare(`
-      SELECT user_id, messages_sent, commands_used, last_message
-      FROM user_statistics
-      WHERE guild_id = ?
-      ORDER BY messages_sent DESC
-      LIMIT ?
-    `);
-    return stmt.all(guildId, limit) || [];
+    const result = await pool.query(
+      'SELECT user_id, messages_sent, commands_used, last_message FROM user_statistics WHERE guild_id = $1 ORDER BY messages_sent DESC LIMIT $2',
+      [guildId, limit]
+    );
+    return result.rows || [];
   } catch (error) {
     console.error('Error getting top active users:', error);
     return [];
@@ -109,19 +120,13 @@ export const getTopActiveUsers = (guildId, limit = 10) => {
  * @param {string} guildId - Guild ID
  * @returns {Object} - Guild statistics
  */
-export const getGuildStatistics = (guildId) => {
+export const getGuildStatistics = async (guildId) => {
   try {
-    const stmt = db.prepare(`
-      SELECT 
-        COUNT(DISTINCT user_id) as active_users,
-        SUM(messages_sent) as total_messages,
-        SUM(commands_used) as total_commands,
-        AVG(messages_sent) as avg_messages,
-        AVG(commands_used) as avg_commands
-      FROM user_statistics
-      WHERE guild_id = ?
-    `);
-    return stmt.get(guildId) || null;
+    const result = await pool.query(
+      'SELECT COUNT(DISTINCT user_id) as active_users, SUM(messages_sent) as total_messages, SUM(commands_used) as total_commands, AVG(messages_sent) as avg_messages, AVG(commands_used) as avg_commands FROM user_statistics WHERE guild_id = $1',
+      [guildId]
+    );
+    return result.rows[0] || null;
   } catch (error) {
     console.error('Error getting guild statistics:', error);
     return null;

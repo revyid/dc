@@ -7,10 +7,12 @@ export default {
     if (!message.guildId) return;
 
     try {
-      // Track message statistics
-      trackMessage(message.guildId, message.author.id);
+      // Track message statistics (async, don't await to not block)
+      trackMessage(message.guildId, message.author.id).catch(error => {
+        console.error('Error tracking message:', error);
+      });
     } catch (error) {
-      console.error('Error tracking message:', error);
+      console.error('Error in messageCreate handler:', error);
     }
   },
 };
