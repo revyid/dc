@@ -1,27 +1,25 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 const jokes = [
-  'Why don\'t scientists trust atoms? Because they make up everything!',
-  'Why did the scarecrow win an award? He was outstanding in his field!',
-  'What do you call fake spaghetti? An impasta!',
-  'Why don\'t eggs tell jokes? They\'d crack each other up!',
-  'What\'s orange and sounds like a parrot? A carrot!',
-  'Why don\'t skeletons fight each other? They don\'t have the guts!',
-  'What do you call a sleeping bull? A dozer!',
-  'Why did the math book look sad? Because it had too many problems!',
+  'Why do programmers prefer dark mode? Because light attracts bugs!',
+  'Why did the developer go broke? Because he used up all his cache!',
+  'How many programmers does it take to change a light bulb? None, that\'s a hardware problem!',
+  'Why do Java developers wear glasses? Because they don\'t C#!',
+  'What\'s a programmer\'s favorite hangout place? Foo Bar!',
 ];
 
 export default {
   data: new SlashCommandBuilder()
     .setName('joke')
-    .setDescription('Tell a random joke'),
-  async execute(interaction, client) {
+    .setDescription('Get a random programming joke'),
+  async execute(interaction) {
     const joke = jokes[Math.floor(Math.random() * jokes.length)];
 
     const embed = new EmbedBuilder()
-      .setColor(0xf39c12)
-      .setTitle('😂 Random Joke')
-      .setDescription(joke);
+      .setColor(0xe67e22)
+      .setTitle('😄 Programming Joke')
+      .setDescription(joke)
+      .setFooter({ text: 'Hope you laughed!' });
 
     await interaction.reply({ embeds: [embed] });
   },

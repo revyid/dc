@@ -146,7 +146,7 @@ Top active users breakdown.
 **Shows:**
 - Top 10 most active users
 - Message count per user
-- Command usage per user
+- Command usage per user 
 - User ranking by activity
 
 **Use Case:** Identify engaged community members
@@ -495,38 +495,3 @@ Iterate
 ---
 
 This guide covers all advanced features added! 🚀
-
-## Community Features (NEW!)
-
-### Leaderboard System (/leaderboard)
-- View reputation and leveling rankings
-- Top 10 users display
-- Real-time updates
-
-### Reputation System (/reputation)
-- Upvote/downvote other members
-- Reputation tracking
-- Personal profiles
-
-### Suggestions System (/suggest)
-- Submit community suggestions
-- Admin review queue
-- Max 100 characters per suggestion
-
-### Giveaways (/giveaway)
-- Create giveaways with custom duration
-- Multiple winners support
-- User entry tracking
-
-### Leveling System (/level)
-- Track user XP and levels
-- Progress bars
-- Leaderboard integration
-
-### Admin Settings Expansion (/adminsettings)
-- Enhanced channel management (suggestions, giveaways)
-- Feature toggles (anti-spam, leveling, reputation, auto-mod)
-- Advanced moderation settings
-- Auto role and notification role settings
-- Customizable welcome/goodbye messages
-

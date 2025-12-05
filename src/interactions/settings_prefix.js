@@ -1,5 +1,5 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
-import { setGuildSetting } from '../utils/database.js';
+import { setGuildSetting, loadGuildSettings } from '../utils/database.js';
 
 export default {
   customId: 'settings_prefix',
@@ -31,7 +31,8 @@ export const prefixModalHandler = {
   async execute(interaction) {
     try {
       const prefix = interaction.fields.getTextInputValue('prefix_input');
-      setGuildSetting(interaction.guildId, { prefix });
+      await setGuildSetting(interaction.guildId, { prefix });
+      await loadGuildSettings(interaction.guildId);
 
       const embed = new EmbedBuilder()
         .setColor('Green')

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getTopActiveUsers, getGuildStatistics } from '../utils/statistics.js';
+import { getActivityLogs } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -7,34 +7,43 @@ export default {
     .setDescription('Test user statistics and analytics'),
   async execute(interaction) {
     try {
-      const guildId = interaction.guildId;
-      
-      // Get top active users
-      const topUsers = getTopActiveUsers(guildId, 10);
-      const guildStats = getGuildStatistics(guildId);
+      const logs = await getActivityLogs(interaction.guildId, 1000) || [];
+      const uniqueUsers = new Set(logs.map(log => log.user_id)).size;
 
-      const embed = new EmbedBuilder()
-        .setColor('Blurple')
-        .setTitle('📊 Statistics Test')
-        .addFields(
-          {
-            name: 'Guild Statistics',
-            value: `Active Users: ${guildStats?.active_users || 0}\nTotal Messages: ${guildStats?.total_messages || 0}\nTotal Commands: ${guildStats?.total_commands || 0}`,
-            inline: false,
-          },
-          {
-            name: 'Top 10 Users',
-            value: topUsers.length > 0 
-              ? topUsers.map((u, i) => `${i + 1}. <@${u.user_id}> - ${u.messages_sent} messages, ${u.commands_used} commands`).join('\n')
+      const userActivity = {};
+      logs.forEach(log => {
+        if(!userActivity[log.user_id]) {
+        userActivity[log.user_id] = 0;
+      }
+      userActivity[log.user_id]++;
+    });
+
+    const topUsers = Object.entries(userActivity)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('📊 Statistics Test')
+      .addFields(
+        {
+          name: 'Guild Statistics',
+          value: `Active Users: ${uniqueUsers}\\nTotal Logs: ${logs.length}`,
+          inline: false,
+        },
+        {
+          name: 'Top 10 Users',
+          value: topUsers.length > 0
+            ? topUsers.map(([userId, count], i) =>`${i + 1}. \u003c@${userId}> - ${count} activities`).join('\\n')
               : 'No data yet',
-            inline: false,
+      inline: false,
           }
         );
 
-      await interaction.reply({ embeds: [embed], flags: 64 });
-    } catch (error) {
-      console.error('Test stats error:', error);
-      await interaction.reply({ content: `❌ Error: ${error.message}`, flags: 64 });
-    }
+  await interaction.reply({ embeds: [embed], flags: 64 });
+} catch (error) {
+  console.error('Test stats error:', error);
+  await interaction.reply({ content: `❌ Error: ${error.message}`, flags: 64 });
+}
   },
 };

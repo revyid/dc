@@ -1,4 +1,4 @@
-import { db } from './database.js';
+import { getActivityLogs } from './database.js';
 
 /**
  * Track command usage for Active Developer Badge eligibility
@@ -6,19 +6,13 @@ import { db } from './database.js';
  * @param {string} userId - User ID
  * @param {string} commandName - Command name
  */
-export const trackCommandUsage = (guildId, userId, commandName) => {
+export const trackCommandUsage = async (guildId, userId, commandName) => {
   try {
-    // Only track if guildId exists (not DM commands)
+    // Command tracking is now handled by the activity log system
     if (!guildId || !userId || !commandName) {
       return;
     }
-
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO dev_badge_tracking 
-      (guild_id, user_id, command_name, last_used_at)
-      VALUES (?, ?, ?, ?)
-    `);
-    stmt.run(guildId, userId, commandName, new Date().toISOString());
+    // Activity logs are automatically tracked via logActivity()
   } catch (error) {
     console.error('Error tracking command usage:', error);
   }
@@ -29,17 +23,12 @@ export const trackCommandUsage = (guildId, userId, commandName) => {
  * @param {string} guildId - Guild ID
  * @returns {boolean} - True if active in last 30 days
  */
-export const isGuildActive = (guildId) => {
+export const isGuildActive = async (guildId) => {
   try {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const logs = await getActivityLogs(guildId, 1000) || [];
     
-    const stmt = db.prepare(`
-      SELECT COUNT(*) as count FROM dev_badge_tracking
-      WHERE guild_id = ? AND last_used_at >= ?
-    `);
-    
-    const result = stmt.get(guildId, thirtyDaysAgo);
-    return result.count > 0;
+    return logs.some(log => new Date(log.created_at).getTime() >= thirtyDaysAgo);
   } catch (error) {
     console.error('Error checking guild activity:', error);
     return false;
@@ -51,21 +40,27 @@ export const isGuildActive = (guildId) => {
  * @param {string} guildId - Guild ID
  * @returns {Array} - Array of command usage stats
  */
-export const getCommandStats = (guildId) => {
+export const getCommandStats = async (guildId) => {
   try {
-    const stmt = db.prepare(`
-      SELECT 
-        command_name,
-        COUNT(*) as usage_count,
-        MAX(last_used_at) as last_used
-      FROM dev_badge_tracking
-      WHERE guild_id = ?
-      GROUP BY command_name
-      ORDER BY usage_count DESC
-      LIMIT 10
-    `);
+    const logs = await getActivityLogs(guildId, 5000) || [];
+    const commandStats = {};
     
-    return stmt.all(guildId) || [];
+    logs.forEach(log => {
+      if (!commandStats[log.action]) {
+        commandStats[log.action] = { count: 0, lastUsed: log.created_at };
+      }
+      commandStats[log.action].count++;
+      commandStats[log.action].lastUsed = log.created_at;
+    });
+    
+    return Object.entries(commandStats)
+      .map(([command, stats]) => ({
+        command_name: command,
+        usage_count: stats.count,
+        last_used: stats.lastUsed
+      }))
+      .sort((a, b) => b.usage_count - a.usage_count)
+      .slice(0, 10);
   } catch (error) {
     console.error('Error getting command stats:', error);
     return [];
@@ -78,7 +73,7 @@ export const getCommandStats = (guildId) => {
  * @param {Object} guildSettings - Guild settings from database
  * @returns {Object} - Eligibility report
  */
-export const getBadgeEligibilityReport = (guildId, guildSettings) => {
+export const getBadgeEligibilityReport = async (guildId, guildSettings) => {
   try {
     const isActive = isGuildActive(guildId);
     const appId = guildSettings?.dev_app_id;

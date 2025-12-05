@@ -1,125 +1,63 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { addLog } from '../utils/database.js';
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { getGuildSettings } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('report')
-    .setDescription('Report user untuk misconduct')
+    .setDescription('Report a user or issue')
+    .addStringOption(option =>
+      option.setName('reason')
+        .setDescription('Reason for report')
+        .setRequired(true)
+        .setMaxLength(500)
+    )
     .addUserOption(option =>
-      option
-        .setName('user')
-        .setDescription('User yang di-report')
-        .setRequired(true)
-    )
-    .addStringOption(option =>
-      option
-        .setName('reason')
-        .setDescription('Alasan report')
-        .setRequired(true)
-        .addChoices(
-          { name: '🔊 Spam', value: 'spam' },
-          { name: '😠 Harassment', value: 'harassment' },
-          { name: '🔞 NSFW', value: 'nsfw' },
-          { name: '🔗 Phishing', value: 'phishing' },
-          { name: '💬 Inappropriate Language', value: 'inappropriate' },
-          { name: '🎮 Cheating', value: 'cheating' },
-          { name: 'ℹ️ Lainnya', value: 'other' },
-        )
-    )
-    .addStringOption(option =>
-      option
-        .setName('description')
-        .setDescription('Deskripsi detail (opsional)')
-        .setRequired(false)
-        .setMaxLength(200)
+      option.setName('user').setDescription('User to report').setRequired(false)
     ),
   async execute(interaction) {
+    const reason = interaction.options.getString('reason');
+    const reportedUser = interaction.options.getUser('user');
+    const settings = getGuildSettings(interaction.guildId) || {};
+    const logsChannel = settings.logs_channel;
+
+    if (!logsChannel) {
+      return interaction.reply({
+        content: '❌ Reports channel is not configured.',
+        flags: 64,
+      });
+    }
+
     try {
-      const targetUser = interaction.options.getUser('user');
-      const reason = interaction.options.getString('reason');
-      const description = interaction.options.getString('description') || 'No description provided';
+      const channel = await interaction.guild.channels.fetch(logsChannel);
 
-      if (targetUser.id === interaction.user.id) {
-        const embed = new EmbedBuilder()
-          .setColor('Red')
-          .setTitle('❌ Tidak Bisa Report Diri Sendiri')
-          .setDescription('Anda tidak bisa melakukan report terhadap diri sendiri.');
-        return interaction.reply({ embeds: [embed], flags: 64 });
+      if (!channel) {
+        return interaction.reply({ content: '❌ Reports channel not found.', flags: 64 });
       }
 
-      if (targetUser.bot) {
-        const embed = new EmbedBuilder()
-          .setColor('Red')
-          .setTitle('❌ Tidak Bisa Report Bot')
-          .setDescription('Anda tidak bisa melakukan report terhadap bot.');
-        return interaction.reply({ embeds: [embed], flags: 64 });
-      }
-
-      const reasonEmoji = {
-        'spam': '🔊',
-        'harassment': '😠',
-        'nsfw': '🔞',
-        'phishing': '🔗',
-        'inappropriate': '💬',
-        'cheating': '🎮',
-        'other': 'ℹ️',
-      };
-
-      const reasonText = {
-        'spam': 'Spam',
-        'harassment': 'Harassment',
-        'nsfw': 'NSFW Content',
-        'phishing': 'Phishing',
-        'inappropriate': 'Inappropriate Language',
-        'cheating': 'Cheating',
-        'other': 'Other',
-      };
-
-      addLog(
-        interaction.guildId,
-        targetUser.id,
-        'report',
-        `Report dari ${interaction.user.username}: ${reasonText[reason]} - ${description}`,
-        interaction.user.id
-      );
-
-      const userEmbed = new EmbedBuilder()
-        .setColor('Yellow')
-        .setTitle('📋 Report Submitted')
-        .setDescription(`Report Anda untuk ${targetUser} telah diterima.`)
+      const embed = new EmbedBuilder()
+        .setColor(0xe74c3c)
+        .setTitle('🚨 New Report')
+        .setAuthor({
+          name: interaction.user.tag,
+          iconURL: interaction.user.displayAvatarURL({ dynamic: true }),
+        })
         .addFields(
-          { name: 'Alasan', value: `${reasonEmoji[reason]} ${reasonText[reason]}`, inline: true },
-          { name: 'Status', value: 'Pending Review', inline: true }
-        );
+          { name: 'Reporter', value: `\u003c@${interaction.user.id}>`, inline: true },
+          { name: 'Reported User', value: reportedUser ? `\u003c@${reportedUser.id}>` : 'General Issue', inline: true },
+          { name: 'Reason', value: reason, inline: false }
+        )
+        .setTimestamp()
+        .setFooter({ text: `Report ID: ${Date.now()}` });
 
-      await interaction.reply({ embeds: [userEmbed], flags: 64 });
+      await channel.send({ embeds: [embed] });
 
-      const modEmbed = new EmbedBuilder()
-        .setColor('Orange')
-        .setTitle('🚨 New User Report')
-        .setDescription(`New report submitted by ${interaction.user.toString()}`)
-        .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-        .addFields(
-          { name: '👤 Reported User', value: `${targetUser} (${targetUser.id})`, inline: true },
-          { name: '👤 Reporter', value: `${interaction.user} (${interaction.user.id})`, inline: true },
-          { name: '📁 Alasan', value: `${reasonEmoji[reason]} ${reasonText[reason]}`, inline: false },
-          { name: '📝 Deskripsi', value: description, inline: false },
-          { name: '🕐 Waktu', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
-        );
-
-      const guild = interaction.guild;
-      const logsChannel = guild.channels.cache.find(ch => ch.name === 'mod-logs' || ch.name === 'logs');
-
-      if (logsChannel && logsChannel.isTextBased()) {
-        await logsChannel.send({ embeds: [modEmbed] }).catch(console.error);
-      }
+      await interaction.reply({
+        content: '✓ Your report has been submitted to the staff team.',
+        flags: 64,
+      });
     } catch (error) {
       console.error('Report command error:', error);
-      const embed = new EmbedBuilder()
-        .setColor('Red')
-        .setTitle('❌ Error')
-        .setDescription('Terjadi kesalahan saat submit report.');
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.reply({ content: '❌ Failed to submit report.', flags: 64 });
     }
   },
 };

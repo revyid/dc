@@ -1,73 +1,40 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getLeaderboard, getLevelingLeaderboard } from '../utils/database.js';
+import { getLevelingLeaderboard } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Lihat leaderboard komunitas')
-    .addStringOption(option =>
-      option.setName('type')
-        .setDescription('Tipe leaderboard')
-        .setRequired(false)
-        .addChoices(
-          { name: 'Reputation', value: 'reputation' },
-          { name: 'Leveling', value: 'leveling' }
-        )
-    ),
+    .setDescription('View server leaderboard'),
   async execute(interaction) {
     try {
-      const type = interaction.options.getString('type') || 'reputation';
-      const guildId = interaction.guildId;
+      const leaderboard = await getLevelingLeaderboard(interaction.guildId, 10);
 
-      let leaderboardData, embed;
-
-      if (type === 'leveling') {
-        leaderboardData = getLevelingLeaderboard(guildId, 10);
-        embed = new EmbedBuilder()
-          .setColor('Gold')
-          .setTitle('🎮 Leveling Leaderboard')
-          .setDescription('Top 10 users by level & experience');
-
-        if (leaderboardData && leaderboardData.length > 0) {
-          const fields = leaderboardData.map((user, index) => ({
-            name: `#${index + 1} - Level ${user.level}`,
-            value: `<@${user.user_id}> • XP: \`${user.experience}\``,
-            inline: false,
-          }));
-          embed.addFields(fields);
-        } else {
-          embed.setDescription('Belum ada data leveling.');
-        }
-      } else {
-        leaderboardData = getLeaderboard(guildId, 10);
-        embed = new EmbedBuilder()
-          .setColor('Purple')
-          .setTitle('⭐ Reputation Leaderboard')
-          .setDescription('Top 10 users by reputation points');
-
-        if (leaderboardData && leaderboardData.length > 0) {
-          const fields = leaderboardData.map((user, index) => ({
-            name: `#${index + 1} - ${user.reputation_points} Points`,
-            value: `<@${user.user_id}> • 👍 ${user.total_upvotes} | 👎 ${user.total_downvotes}`,
-            inline: false,
-          }));
-          embed.addFields(fields);
-        } else {
-          embed.setDescription('Belum ada data reputation.');
-        }
+      if (leaderboard.length === 0) {
+        return interaction.reply({ content: '📊 No leaderboard data yet.', flags: 64 });
       }
 
-      embed.setFooter({ text: `Guild: ${interaction.guild.name}` });
-      embed.setTimestamp();
+      const description = await Promise.all(
+        leaderboard.map(async(entry, i) => {
+          const user = await interaction.client.users.fetch(entry.user_id).catch(() => null);
+          const username = user ? user.tag : 'Unknown User';
+          const level = entry.level || 1;
+          const xp = entry.experience || 0;
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `**${i + 1}.**`;
+          return `${medal} ${username} - Level ${level} (${xp} XP)`;
+        })
+      );
 
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      const embed = new EmbedBuilder()
+        .setColor(0xf1c40f)
+        .setTitle('🏆 Server Leaderboard')
+        .setDescription(description.join('\\n'))
+        .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
+        .setFooter({ text: 'Top 10 members by level' });
+
+      await interaction.reply({ embeds: [embed] });
     } catch (error) {
       console.error('Leaderboard command error:', error);
-      const embed = new EmbedBuilder()
-        .setColor('Red')
-        .setTitle('❌ Error')
-        .setDescription('Terjadi kesalahan saat memuat leaderboard.');
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.reply({ content: '❌ Failed to fetch leaderboard.', flags: 64 });
     }
   },
 };

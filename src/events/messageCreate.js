@@ -8,9 +8,7 @@ export default {
 
     try {
       // Track message statistics (async, don't await to not block)
-      trackMessage(message.guildId, message.author.id).catch(error => {
-        console.error('Error tracking message:', error);
-      });
+      trackMessage(message.guildId, message.author.id);
     } catch (error) {
       console.error('Error in messageCreate handler:', error);
     }

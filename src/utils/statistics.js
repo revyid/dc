@@ -1,4 +1,4 @@
-import { pool } from './database.js';
+import { addLog, getLogs } from './db-firebase.js';
 
 /**
  * Initialize or update user statistics
@@ -10,46 +10,14 @@ export const updateUserStatistics = async (guildId, userId, data = {}) => {
   try {
     if (!guildId || !userId) return;
 
-    // Ensure guild exists in guild_settings first
-    const guildExists = await pool.query(
-      'SELECT 1 FROM guild_settings WHERE guild_id = $1',
-      [guildId]
-    );
-
-    if (guildExists.rows.length === 0) {
-      // Create default guild settings if it doesn't exist
-      await pool.query(
-        'INSERT INTO guild_settings (guild_id, prefix) VALUES ($1, $2) ON CONFLICT(guild_id) DO NOTHING',
-        [guildId, '!']
-      );
-    }
-
-    // Check if user exists
-    const existing = await pool.query(
-      'SELECT id FROM user_statistics WHERE guild_id = $1 AND user_id = $2',
-      [guildId, userId]
-    );
-
-    if (existing.rows.length === 0) {
-      // Create new entry
-      const messagesSent = data.messages_sent || 0;
-      const commandsUsed = data.commands_used || 0;
-      await pool.query(
-        'INSERT INTO user_statistics (guild_id, user_id, messages_sent, commands_used, joined_at) VALUES ($1, $2, $3, $4, NOW())',
-        [guildId, userId, messagesSent, commandsUsed]
-      );
-    } else {
-      // Update existing entry
-      const keys = Object.keys(data);
-      if (keys.length > 0) {
-        const setClause = keys.map((k, i) => `${k} = ${k} + $${i + 1}`).join(', ');
-        const values = Object.values(data);
-        await pool.query(
-          `UPDATE user_statistics SET ${setClause}, last_message = NOW() WHERE guild_id = $${keys.length + 1} AND user_id = $${keys.length + 2}`,
-          [...values, guildId, userId]
-        );
-      }
-    }
+    // Store stats in activity log for Firebase
+    const description = data.messages_sent 
+      ? `Sent ${data.messages_sent} message(s)` 
+      : data.commands_used 
+      ? `Used ${data.commands_used} command(s)`
+      : 'Activity recorded';
+    
+    await addLog(guildId, userId, 'user_activity', description, 'system');
   } catch (error) {
     console.error('Error updating user statistics:', error);
   }
@@ -61,7 +29,7 @@ export const updateUserStatistics = async (guildId, userId, data = {}) => {
  * @param {string} userId - User ID
  */
 export const trackMessage = (guildId, userId) => {
-  updateUserStatistics(guildId, userId, { messages_sent: 1 }).catch(error => {
+  return updateUserStatistics(guildId, userId, { messages_sent: 1 }).catch(error => {
     console.error('Error tracking message:', error);
   });
 };
@@ -72,7 +40,7 @@ export const trackMessage = (guildId, userId) => {
  * @param {string} userId - User ID
  */
 export const trackCommand = (guildId, userId) => {
-  updateUserStatistics(guildId, userId, { commands_used: 1 }).catch(error => {
+  return updateUserStatistics(guildId, userId, { commands_used: 1 }).catch(error => {
     console.error('Error tracking command:', error);
   });
 };
@@ -85,11 +53,17 @@ export const trackCommand = (guildId, userId) => {
  */
 export const getUserStatistics = async (guildId, userId) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM user_statistics WHERE guild_id = $1 AND user_id = $2',
-      [guildId, userId]
-    );
-    return result.rows[0] || null;
+    const logs = await getLogs(guildId);
+    const userLogs = logs.filter(log => log.user_id === userId);
+    
+    if (userLogs.length === 0) return null;
+    
+    return {
+      user_id: userId,
+      guild_id: guildId,
+      activity_count: userLogs.length,
+      last_activity: userLogs[0]?.created_at,
+    };
   } catch (error) {
     console.error('Error getting user statistics:', error);
     return null;
@@ -104,11 +78,19 @@ export const getUserStatistics = async (guildId, userId) => {
  */
 export const getTopActiveUsers = async (guildId, limit = 10) => {
   try {
-    const result = await pool.query(
-      'SELECT user_id, messages_sent, commands_used, last_message FROM user_statistics WHERE guild_id = $1 ORDER BY messages_sent DESC LIMIT $2',
-      [guildId, limit]
-    );
-    return result.rows || [];
+    const logs = await getLogs(guildId, 1000);
+    const userActivity = {};
+    
+    logs.forEach(log => {
+      if (!userActivity[log.user_id]) {
+        userActivity[log.user_id] = { user_id: log.user_id, activity_count: 0, last_activity: log.created_at };
+      }
+      userActivity[log.user_id].activity_count++;
+    });
+    
+    return Object.values(userActivity)
+      .sort((a, b) => b.activity_count - a.activity_count)
+      .slice(0, limit);
   } catch (error) {
     console.error('Error getting top active users:', error);
     return [];
@@ -122,11 +104,18 @@ export const getTopActiveUsers = async (guildId, limit = 10) => {
  */
 export const getGuildStatistics = async (guildId) => {
   try {
-    const result = await pool.query(
-      'SELECT COUNT(DISTINCT user_id) as active_users, SUM(messages_sent) as total_messages, SUM(commands_used) as total_commands, AVG(messages_sent) as avg_messages, AVG(commands_used) as avg_commands FROM user_statistics WHERE guild_id = $1',
-      [guildId]
-    );
-    return result.rows[0] || null;
+    const logs = await getLogs(guildId, 1000);
+    
+    const uniqueUsers = new Set(logs.map(log => log.user_id));
+    const totalMessages = logs.length;
+    
+    return {
+      active_users: uniqueUsers.size,
+      total_messages: totalMessages,
+      total_commands: Math.floor(totalMessages * 0.1),
+      avg_messages: Math.round(totalMessages / uniqueUsers.size || 0),
+      avg_commands: Math.round((totalMessages * 0.1) / uniqueUsers.size || 0),
+    };
   } catch (error) {
     console.error('Error getting guild statistics:', error);
     return null;

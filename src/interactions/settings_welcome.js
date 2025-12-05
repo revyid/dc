@@ -1,5 +1,5 @@
 import { EmbedBuilder, ActionRowBuilder, ChannelSelectMenuBuilder, TextInputBuilder, TextInputStyle, ModalBuilder } from 'discord.js';
-import { getGuildSettings, setGuildSetting } from '../utils/database.js';
+import { getGuildSettings, setGuildSetting, loadGuildSettings } from '../utils/database.js';
 
 export default {
   customId: 'settings_welcome',
@@ -29,14 +29,16 @@ export const selectWelcomeHandler = {
   async execute(interaction) {
     try {
       const channel = interaction.values[0];
-      setGuildSetting(interaction.guildId, { welcome_channel: channel });
+      await setGuildSetting(interaction.guildId, { welcome_channel: channel });
+      await loadGuildSettings(interaction.guildId);
 
       const embed = new EmbedBuilder()
         .setColor('Green')
         .setTitle('✅ Welcome Channel Diatur')
         .setDescription(`Kanal welcome telah diatur ke <#${channel}>`);
 
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.deferUpdate();
+      await interaction.followUp({ embeds: [embed], flags: 64 });
     } catch (error) {
       console.error('Select welcome channel error:', error);
     }

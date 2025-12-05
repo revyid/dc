@@ -1,5 +1,5 @@
 import { EmbedBuilder, ActionRowBuilder, ChannelSelectMenuBuilder } from 'discord.js';
-import { setGuildSetting } from '../utils/database.js';
+import { setGuildSetting, loadGuildSettings } from '../utils/database.js';
 
 export default {
   customId: 'settings_goodbye',
@@ -29,14 +29,16 @@ export const selectGoodbyeHandler = {
   async execute(interaction) {
     try {
       const channel = interaction.values[0];
-      setGuildSetting(interaction.guildId, { goodbye_channel: channel });
+      await setGuildSetting(interaction.guildId, { goodbye_channel: channel });
+      await loadGuildSettings(interaction.guildId);
 
       const embed = new EmbedBuilder()
         .setColor('Green')
         .setTitle('✅ Goodbye Channel Diatur')
         .setDescription(`Kanal goodbye telah diatur ke <#${channel}>`);
 
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.deferUpdate();
+      await interaction.followUp({ embeds: [embed], flags: 64 });
     } catch (error) {
       console.error('Select goodbye channel error:', error);
     }

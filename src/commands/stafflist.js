@@ -1,52 +1,49 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { getGuildRoles } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('stafflist')
-    .setDescription('Show all staff members'),
-  async execute(interaction, client) {
-    const adminRole = process.env.ADMIN_ROLE;
-    const moderatorRole = process.env.MODERATOR_ROLE;
-    const operatorRole = process.env.OPERATOR_ROLE;
+    .setDescription('Show list of server staff members')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  async execute(interaction) {
+    try {
+      const roles = getGuildRoles(interaction.guildId) || {};
+      const guild = interaction.guild;
 
-    await interaction.deferReply();
+      const staffCategories = [];
 
-    const members = await interaction.guild.members.fetch();
+      const addStaffCategory = (roleName, roleId) => {
+        if (!roleId) return;
+        const role = guild.roles.cache.get(roleId);
+        if (!role) return;
+        const members = role.members.map(m => m.user.tag).join(', ') || 'None';
+        staffCategories.push({ name: roleName, value: members, inline: false });
+      };
 
-    const admins = members.filter(m =>
-      m.roles.cache.some(r => r.name.toLowerCase() === adminRole?.toLowerCase())
-    );
+      addStaffCategory('👑 Owners', roles.owner_role_id);
+      addStaffCategory('🎖️ Co-Owners', roles.co_owner_role_id);
+      addStaffCategory('⭐ Admins', roles.admin_role_id);
+      addStaffCategory('🛡️ Moderators', roles.moderator_role_id);
+      addStaffCategory('👮 Staff', roles.staff_role_id);
 
-    const moderators = members.filter(m =>
-      m.roles.cache.some(r => r.name.toLowerCase() === moderatorRole?.toLowerCase())
-    );
+      const embed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle('👥 Server Staff')
+        .setDescription('List of all staff members in this server')
+        .setThumbnail(guild.iconURL({ dynamic: true }))
+        .setFooter({ text: `${guild.name}` });
 
-    const operators = members.filter(m =>
-      m.roles.cache.some(r => r.name.toLowerCase() === operatorRole?.toLowerCase())
-    );
+      if (staffCategories.length > 0) {
+        embed.addFields(...staffCategories);
+      } else {
+        embed.setDescription('No staff roles configured.');
+      }
 
-    const embed = new EmbedBuilder()
-      .setColor(0x3498db)
-      .setTitle('👥 Staff List')
-      .addFields(
-        {
-          name: `🔴 Admin (${admins.size})`,
-          value: admins.size > 0 ? admins.map(m => m.user.tag).join('\n') : 'None',
-          inline: false,
-        },
-        {
-          name: `🟡 Moderator (${moderators.size})`,
-          value: moderators.size > 0 ? moderators.map(m => m.user.tag).join('\n') : 'None',
-          inline: false,
-        },
-        {
-          name: `🟢 Operator (${operators.size})`,
-          value: operators.size > 0 ? operators.map(m => m.user.tag).join('\n') : 'None',
-          inline: false,
-        },
-      )
-      .setFooter({ text: `Total Staff: ${admins.size + moderators.size + operators.size}` });
-
-    await interaction.editReply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
+    } catch (error) {
+      console.error('Stafflist command error:', error);
+      await interaction.reply({ content: '❌ Failed to fetch staff list.', flags: 64 });
+    }
   },
 };

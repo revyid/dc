@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { createAdminUser, initializeDatabase } from './src/utils/db-postgres.js';
+import { createAdminUser, initializeDatabase } from './src/utils/db-firebase.js';
 import { hashPassword } from './src/web/auth.js';
 import readline from 'readline';
 
@@ -16,7 +16,7 @@ async function main() {
   console.log('🔧 Discord Bot Admin Setup\n');
   
   try {
-    console.log('Initializing database...');
+    console.log('Initializing Firebase database...');
     await initializeDatabase();
     console.log('✓ Database initialized\n');
 
@@ -40,7 +40,7 @@ async function main() {
     console.log('\n✅ Admin user created successfully!');
     console.log(`Username: ${username}`);
     console.log('\n📌 Next steps:');
-    console.log('1. Set DATABASE_URL environment variable with your Neon connection string');
+    console.log('1. Verify Firebase environment variables are set in .env');
     console.log('2. Start the bot with: npm start');
     console.log('3. Visit http://localhost:3000 to access the dashboard');
 

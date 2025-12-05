@@ -1,107 +1,74 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getReputation, addReputation } from '../utils/database.js';
+import { getReputation, getLeaderboard } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('reputation')
-    .setDescription('Lihat atau kelola reputasi pengguna')
+    .setDescription('Manage reputation system')
     .addSubcommand(subcommand =>
       subcommand
         .setName('check')
-        .setDescription('Cek reputasi pengguna')
+        .setDescription('Check reputation of a user')
         .addUserOption(option =>
-          option.setName('user')
-            .setDescription('Pengguna untuk dicek')
-            .setRequired(false)
+          option.setName('user').setDescription('User to check').setRequired(false)
         )
     )
     .addSubcommand(subcommand =>
       subcommand
-        .setName('upvote')
-        .setDescription('Beri reputasi positif kepada pengguna')
-        .addUserOption(option =>
-          option.setName('user')
-            .setDescription('Pengguna yang diberi upvote')
-            .setRequired(true)
-        )
-    )
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('downvote')
-        .setDescription('Beri reputasi negatif kepada pengguna')
-        .addUserOption(option =>
-          option.setName('user')
-            .setDescription('Pengguna yang diberi downvote')
-            .setRequired(true)
-        )
+        .setName('leaderboard')
+        .setDescription('View reputation leaderboard')
     ),
   async execute(interaction) {
-    try {
-      const subcommand = interaction.options.getSubcommand();
-      const guildId = interaction.guildId;
-      const targetUser = interaction.options.getUser('user');
+    const subcommand = interaction.options.getSubcommand();
 
-      if (subcommand === 'check') {
-        const user = targetUser || interaction.user;
-        const rep = getReputation(guildId, user.id);
+    if (subcommand === 'check') {
+      const user = interaction.options.getUser('user') || interaction.user;
+
+      try {
+        const rep = await getReputation(interaction.guildId, user.id);
 
         const embed = new EmbedBuilder()
-          .setColor('Blue')
-          .setTitle(`⭐ Reputasi ${user.username}`)
-          .setThumbnail(user.displayAvatarURL())
+          .setColor(0xf1c40f)
+          .setTitle(`⭐ ${user.username}'s Reputation`)
+          .setThumbnail(user.displayAvatarURL({ dynamic: true }))
           .addFields(
-            { name: 'Poin', value: `\`${rep?.reputation_points || 0}\``, inline: true },
-            { name: 'Upvotes', value: `\`${rep?.total_upvotes || 0}\` 👍`, inline: true },
-            { name: 'Downvotes', value: `\`${rep?.total_downvotes || 0}\` 👎`, inline: true }
+            { name: 'Points', value: (rep?.reputation_points || 0).toString(), inline: true },
+            { name: 'Upvotes', value: (rep?.total_upvotes || 0).toString(), inline: true },
+            { name: 'Downvotes', value: (rep?.total_downvotes || 0).toString(), inline: true }
           );
 
-        return interaction.reply({ embeds: [embed], flags: 64 });
+        await interaction.reply({ embeds: [embed] });
+      } catch (error) {
+        console.error('Reputation check error:', error);
+        await interaction.reply({ content: '❌ Failed to fetch reputation.', flags: 64 });
       }
+    } else if (subcommand === 'leaderboard') {
+      try {
+        const leaderboard = await getLeaderboard(interaction.guildId, 10);
 
-      if (subcommand === 'upvote') {
-        if (targetUser.id === interaction.user.id) {
-          return interaction.reply({
-            content: '❌ Anda tidak bisa upvote diri sendiri!',
-            flags: 64,
-          });
+        if (leaderboard.length === 0) {
+          return interaction.reply({ content: '📊 No reputation data yet.', flags: 64 });
         }
 
-        addReputation(guildId, targetUser.id, 1);
+        const description = await Promise.all(
+          leaderboard.map(async(entry, i) => {
+            const user = await interaction.client.users.fetch(entry.user_id).catch(() => null);
+            const username = user ? user.tag : 'Unknown User';
+            return `**${i + 1}.** ${username} - ${entry.reputation_points || 0} points`;
+          })
+        );
 
         const embed = new EmbedBuilder()
-          .setColor('Green')
-          .setTitle('👍 Upvote Berhasil!')
-          .setDescription(`${interaction.user.username} memberi upvote kepada ${targetUser.username}`)
-          .addField('Poin Baru', `+1 ⭐`);
+          .setColor(0xf1c40f)
+          .setTitle('🏆 Reputation Leaderboard')
+          .setDescription(description.join('\\n'))
+          .setFooter({ text: 'Top 10 members by reputation' });
 
-        return interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
+      } catch (error) {
+        console.error('Reputation leaderboard error:', error);
+        await interaction.reply({ content: '❌ Failed to fetch leaderboard.', flags: 64 });
       }
-
-      if (subcommand === 'downvote') {
-        if (targetUser.id === interaction.user.id) {
-          return interaction.reply({
-            content: '❌ Anda tidak bisa downvote diri sendiri!',
-            flags: 64,
-          });
-        }
-
-        addReputation(guildId, targetUser.id, -1);
-
-        const embed = new EmbedBuilder()
-          .setColor('Orange')
-          .setTitle('👎 Downvote Tercatat')
-          .setDescription(`${interaction.user.username} memberi downvote kepada ${targetUser.username}`)
-          .addField('Poin Baru', `-1 ⭐`);
-
-        return interaction.reply({ embeds: [embed] });
-      }
-    } catch (error) {
-      console.error('Reputation command error:', error);
-      const embed = new EmbedBuilder()
-        .setColor('Red')
-        .setTitle('❌ Error')
-        .setDescription('Terjadi kesalahan saat mengelola reputasi.');
-      await interaction.reply({ embeds: [embed], flags: 64 });
     }
   },
 };

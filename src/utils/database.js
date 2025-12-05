@@ -1,13 +1,18 @@
-// Compatibility layer - maps old SQLite calls to PostgreSQL
+// Compatibility layer - maps old SQLite calls to Firebase Realtime Database
 // This allows existing code to work without massive refactoring
-import { 
-  pool,
+import {
   getGuildSettings,
+  loadGuildSettings,
   setGuildSetting,
+  getGuildRoles,
+  loadGuildRoles,
+  setGuildRole,
+  initializeGuildRoles,
   addWarning,
   getWarnings,
   addLog,
   getLogs,
+  getActivityLogs,
   createTicket,
   closeTicket,
   getOpenTickets,
@@ -30,7 +35,29 @@ import {
   getLevelData,
   getLevelingLeaderboard,
   logActivity,
-} from './db-postgres.js';
+  initializeDatabase,
+  database,
+  // Rules functions
+  saveGuildRules,
+  getGuildRules,
+  setRulesChannel,
+  setVerifiedRole,
+  logRulesAgreement,
+  // Poll functions
+  createPoll,
+  votePoll,
+  getPoll,
+  getActivePolls,
+  endPoll,
+  updatePollMessage,
+  // Invite functions
+  saveInviteLink,
+  getInviteByShortCode,
+  getGuildInvites,
+  incrementInviteUses,
+  deleteInviteLink,
+  getAllShortLinks,
+} from './db-firebase.js';
 
 // Mock db object for backward compatibility with code that uses db.prepare()
 const db = {
@@ -48,18 +75,25 @@ const db = {
       return [];
     },
   }),
-  exec: () => {},
+  exec: () => { },
 };
 
 export {
   db,
-  pool,
+  database,
+  initializeDatabase,
   getGuildSettings,
+  loadGuildSettings,
   setGuildSetting,
+  getGuildRoles,
+  loadGuildRoles,
+  setGuildRole,
+  initializeGuildRoles,
   addWarning,
   getWarnings,
   addLog,
   getLogs,
+  getActivityLogs,
   createTicket,
   closeTicket,
   getOpenTickets,
@@ -82,4 +116,24 @@ export {
   getLevelData,
   getLevelingLeaderboard,
   logActivity,
+  // Rules functions
+  saveGuildRules,
+  getGuildRules,
+  setRulesChannel,
+  setVerifiedRole,
+  logRulesAgreement,
+  // Poll functions
+  createPoll,
+  votePoll,
+  getPoll,
+  getActivePolls,
+  endPoll,
+  updatePollMessage,
+  // Invite functions
+  saveInviteLink,
+  getInviteByShortCode,
+  getGuildInvites,
+  incrementInviteUses,
+  deleteInviteLink,
+  getAllShortLinks,
 };

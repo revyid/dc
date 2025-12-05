@@ -1,28 +1,31 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('roleinfo')
     .setDescription('Get information about a role')
     .addRoleOption(option =>
-      option.setName('role').setDescription('Role to get info for').setRequired(true)
+      option.setName('role').setDescription('Role to get info about').setRequired(true)
     ),
-  async execute(interaction, client) {
+  async execute(interaction) {
     const role = interaction.options.getRole('role');
 
+    const permissions = role.permissions.toArray().join(', ') || 'None';
+
     const embed = new EmbedBuilder()
-      .setColor(role.color || 0x808080)
-      .setTitle(`🏷️ Role Information`)
+      .setColor(role.color)
+      .setTitle(`📌 ${role.name}`)
       .addFields(
-        { name: 'Role Name', value: role.name, inline: true },
-        { name: 'Role ID', value: role.id, inline: true },
-        { name: 'Color', value: `#${role.color.toString(16).toUpperCase().padStart(6, '0')}`, inline: true },
-        { name: 'Permissions', value: role.permissions.toArray().slice(0, 5).join(', ') || 'No permissions', inline: false },
+        { name: 'ID', value: role.id, inline: true },
+        { name: 'Color', value: role.hexColor, inline: true },
+        { name: 'Position', value: role.position.toString(), inline: true },
+        { name: 'Members', value: role.members.size.toString(), inline: true },
         { name: 'Mentionable', value: role.mentionable ? 'Yes' : 'No', inline: true },
-        { name: 'Hoist', value: role.hoist ? 'Yes' : 'No', inline: true },
-        { name: 'Created', value: `<t:${Math.floor(role.createdTimestamp / 1000)}:F>`, inline: false },
-        { name: 'Members', value: (await interaction.guild.members.fetch()).filter(m => m.roles.cache.has(role.id)).size.toString(), inline: true },
-      );
+        { name: 'Hoisted', value: role.hoist ? 'Yes' : 'No', inline: true },
+        { name: 'Created', value: `\u003ct:${Math.floor(role.createdTimestamp / 1000)}:R>`, inline: true }
+      )
+      .setFooter({ text: `Requested by ${interaction.user.username}` })
+      .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
   },

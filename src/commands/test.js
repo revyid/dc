@@ -3,8 +3,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('test')
-    .setDescription('Test command untuk memverifikasi bot working properly'),
-  
+    .setDescription('Test command to verify bot is working properly'),
   async execute(interaction, client) {
     const uptime = Math.floor(client.uptime / 1000);
     const hours = Math.floor(uptime / 3600);
@@ -12,7 +11,7 @@ export default {
     const seconds = uptime % 60;
 
     const embed = new EmbedBuilder()
-      .setColor(0x00ff00)
+      .setColor(0x2ecc71)
       .setTitle('✅ Bot Status')
       .addFields(
         { name: '🤖 Bot Name', value: client.user.username, inline: true },
@@ -20,7 +19,7 @@ export default {
         { name: '⏱️ Uptime', value: `${hours}h ${minutes}m ${seconds}s`, inline: true },
         { name: '📊 Servers', value: client.guilds.cache.size.toString(), inline: true },
         { name: '👥 Users', value: client.users.cache.size.toString(), inline: true },
-        { name: '💾 Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`, inline: true },
+        { name: '💾 Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`, inline: true }
       )
       .setFooter({ text: 'Bot is working perfectly!' })
       .setTimestamp();

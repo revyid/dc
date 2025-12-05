@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { getAdminUser, updateAdminLastLogin } from '../utils/db-postgres.js';
+import { getAdminUser } from '../utils/db-firebase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -56,14 +56,12 @@ export const loginAdmin = async (username, password) => {
     return { success: false, error: 'Invalid credentials' };
   }
 
-  await updateAdminLastLogin(user.id);
-  const token = generateToken(user.id, user.username);
+  const token = generateToken(username, username);
 
   return {
     success: true,
     token,
     user: {
-      id: user.id,
       username: user.username,
     },
   };

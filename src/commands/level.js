@@ -1,56 +1,40 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getLevelData, getLevelingLeaderboard } from '../utils/database.js';
+import { getLevelData } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('level')
-    .setDescription('Lihat level dan experience')
+    .setDescription('Check your or someone else\'s level')
     .addUserOption(option =>
-      option.setName('user')
-        .setDescription('Pengguna untuk dicek')
-        .setRequired(false)
+      option.setName('user').setDescription('User to check').setRequired(false)
     ),
   async execute(interaction) {
+    const targetUser = interaction.options.getUser('user') || interaction.user;
+
     try {
-      const targetUser = interaction.options.getUser('user') || interaction.user;
-      const guildId = interaction.guildId;
-
-      const levelData = getLevelData(guildId, targetUser.id);
-      const leaderboard = getLevelingLeaderboard(guildId, 10);
-
+      const levelData = await getLevelData(interaction.guildId, targetUser.id);
       const level = levelData?.level || 1;
       const experience = levelData?.experience || 0;
-      const nextLevelXp = level * 100; // 100 XP per level
-      const progressPercent = Math.floor((experience / nextLevelXp) * 100);
-
-      // Find rank in leaderboard
-      let rank = 'N/A';
-      if (leaderboard) {
-        const index = leaderboard.findIndex(u => u.user_id === targetUser.id);
-        if (index !== -1) rank = `#${index + 1}`;
-      }
+      const nextLevelXP = level * 100;
+      const progress = Math.round((experience / nextLevelXP) * 100);
 
       const embed = new EmbedBuilder()
-        .setColor('Gold')
-        .setTitle(`🎮 Level ${level}`)
-        .setThumbnail(targetUser.displayAvatarURL())
+        .setColor(0x3498db)
+        .setTitle(`📊 Level Information`)
+        .setDescription(`${targetUser.toString()}'s leveling stats`)
         .addFields(
-          { name: 'Pengguna', value: `${targetUser.username}`, inline: true },
-          { name: 'Rank', value: rank, inline: true },
-          { name: 'Experience', value: `\`${experience} / ${nextLevelXp}\` XP`, inline: false },
-          { name: 'Progress', value: `${'█'.repeat(Math.floor(progressPercent / 5))}${'░'.repeat(20 - Math.floor(progressPercent / 5))} ${progressPercent}%`, inline: false }
+          { name: '📊 Level', value: level.toString(), inline: true },
+          { name: '⭐ Experience', value: `${experience}/${nextLevelXP}`, inline: true },
+          { name: '📈 Progress', value: `${progress}%`, inline: true }
         )
-        .setFooter({ text: 'Gain XP dengan mengirim pesan dan menggunakan command!' })
+        .setThumbnail(targetUser.displayAvatarURL())
+        .setFooter({ text: `Requested by ${interaction.user.username}` })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.reply({ embeds: [embed] });
     } catch (error) {
       console.error('Level command error:', error);
-      const embed = new EmbedBuilder()
-        .setColor('Red')
-        .setTitle('❌ Error')
-        .setDescription('Terjadi kesalahan saat mengambil data level.');
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.reply({ content: '❌ Failed to fetch level data.', flags: 64 });
     }
   },
 };

@@ -5,44 +5,45 @@ export default {
   customId: 'select_settings_channel',
   async execute(interaction) {
     try {
+      await interaction.deferReply({ flags: 64 });
       const selectedChannelId = interaction.values[0];
       const channel = interaction.guild.channels.cache.get(selectedChannelId);
       const channelName = channel?.name || 'Unknown';
       const settings = getGuildSettings(interaction.guildId) || {};
 
       const buttons = [];
-      
+
       // Define all channel types with their current values
       const channelTypes = [
-        { 
-          type: 'welcome', 
-          label: '👋 Welcome', 
+        {
+          type: 'welcome',
+          label: '👋 Welcome',
           style: ButtonStyle.Primary,
-          current: settings.welcome_channel 
+          current: settings.welcome_channel
         },
-        { 
-          type: 'goodbye', 
-          label: '👋 Goodbye', 
+        {
+          type: 'goodbye',
+          label: '👋 Goodbye',
           style: ButtonStyle.Primary,
-          current: settings.goodbye_channel 
+          current: settings.goodbye_channel
         },
-        { 
-          type: 'logs', 
-          label: '📋 Logs', 
+        {
+          type: 'logs',
+          label: '📋 Logs',
           style: ButtonStyle.Primary,
-          current: settings.logs_channel 
+          current: settings.logs_channel
         },
-        { 
-          type: 'suggestions', 
-          label: '💬 Suggestions', 
+        {
+          type: 'suggestions',
+          label: '💬 Suggestions',
           style: ButtonStyle.Secondary,
-          current: settings.suggestions_channel 
+          current: settings.suggestions_channel
         },
-        { 
-          type: 'giveaways', 
-          label: '🎁 Giveaways', 
+        {
+          type: 'giveaways',
+          label: '🎁 Giveaways',
           style: ButtonStyle.Secondary,
-          current: settings.giveaway_channel 
+          current: settings.giveaway_channel
         },
       ];
 
@@ -76,11 +77,11 @@ export default {
         .setTitle('📝 Pilih Tipe Channel')
         .setDescription(`Selected: <#${selectedChannelId}> (#${channelName})\n\nGunakan tombol di bawah untuk menentukan tipe channel mana yang akan digunakan:\n\n**Legend:**\n🟢 (SET) = Sudah dikonfigurasi, klik untuk ubah\n🔵 (NOT SET) = Belum dikonfigurasi, klik untuk set`);
 
-      await interaction.reply({ embeds: [embed], components: [row1, row2], flags: 64 });
+      await interaction.editReply({ embeds: [embed], components: [row1, row2], flags: 64 });
     } catch (error) {
       console.error('Error in select_settings_channel:', error);
       try {
-        await interaction.reply({ content: '❌ Terjadi kesalahan.', flags: 64 });
+        await interaction.editReply({ content: '❌ Terjadi kesalahan.', flags: 64 });
       } catch (replyError) {
         console.error('Failed to send error reply:', replyError);
       }

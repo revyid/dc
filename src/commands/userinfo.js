@@ -5,37 +5,31 @@ export default {
     .setName('userinfo')
     .setDescription('Get information about a user')
     .addUserOption(option =>
-      option.setName('user').setDescription('User to get info for').setRequired(false)
+      option.setName('user').setDescription('User to get info about').setRequired(false)
     ),
-  async execute(interaction, client) {
-    const member = interaction.options.getMember('user') || interaction.member;
+  async execute(interaction) {
+    const user = interaction.options.getUser('user') || interaction.user;
+    const member = interaction.guild.members.cache.get(user.id);
+
+    const roles = member.roles.cache
+      .filter(role => role.id !== interaction.guild.id)
+      .map(role => role.toString())
+      .join(', ') || 'None';
 
     const embed = new EmbedBuilder()
       .setColor(0x3498db)
-      .setTitle('👤 User Information')
-      .setThumbnail(member.user.displayAvatarURL({ size: 512 }))
+      .setTitle(`📋 ${user.username}'s Information`)
+      .setThumbnail(user.displayAvatarURL({ dynamic: true }))
       .addFields(
-        { name: 'Username', value: member.user.username, inline: true },
-        { name: 'Tag', value: member.user.tag, inline: true },
-        { name: 'ID', value: member.user.id, inline: true },
-        {
-          name: 'Account Created',
-          value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>`,
-          inline: false,
-        },
-        {
-          name: 'Joined Server',
-          value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:F>`,
-          inline: false,
-        },
-        {
-          name: 'Roles',
-          value: member.roles.cache.map(r => r.toString()).join(', ') || 'No roles',
-          inline: false,
-        },
-      );
+        { name: 'User', value: user.tag, inline: true },
+        { name: 'ID', value: user.id, inline: true },
+        { name: 'Created', value: `\u003ct:${Math.floor(user.createdTimestamp / 1000)}:R>`, inline: true },
+        { name: 'Joined', value: member ? `\u003ct:${Math.floor(member.joinedTimestamp / 1000)}:R>` : 'Unknown', inline: true },
+        { name: 'Roles', value: roles, inline: false }
+      )
+      .setFooter({ text: `Requested by ${interaction.user.username}` })
+      .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
   },
 };
-

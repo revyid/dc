@@ -1,130 +1,58 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
-import { createTicket, getOpenTickets } from '../utils/database.js';
-import { randomBytes } from 'crypto';
-
-const generateTicketId = () => {
-  return `TK-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
-};
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
+import { createTicket } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('ticket')
-    .setDescription('Buat support ticket')
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('create')
-        .setDescription('Buat ticket baru')
-        .addStringOption(option =>
-          option
-            .setName('topic')
-            .setDescription('Topik ticket')
-            .setRequired(true)
-            .addChoices(
-              { name: '🐛 Bug Report', value: 'bug' },
-              { name: '💡 Feature Request', value: 'feature' },
-              { name: '❓ Question', value: 'question' },
-              { name: '⚠️ Report User', value: 'report' },
-              { name: '💰 Billing', value: 'billing' },
-            )
-        )
-    )
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('list')
-        .setDescription('Lihat daftar open tickets')
-    ),
+    .setDescription('Create a support ticket'),
   async execute(interaction) {
+    const ticketId = `ticket-${interaction.user.id}-${Date.now()}`;
+
     try {
-      const subcommand = interaction.options.getSubcommand();
+      const channel = await interaction.guild.channels.create({
+        name: ticketId,
+        type: 0,
+        parent: interaction.channel.parent,
+        permissionOverwrites: [
+          {
+            id: interaction.guild.id,
+            deny: ['ViewChannel'],
+          },
+          {
+            id: interaction.user.id,
+            allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'],
+          },
+          {
+            id: interaction.client.user.id,
+            allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'],
+          },
+        ],
+      });
 
-      if (subcommand === 'create') {
-        const topic = interaction.options.getString('topic');
-        const ticketId = generateTicketId();
-        const userId = interaction.user.id;
-        const guildId = interaction.guildId;
+      await createTicket(ticketId, interaction.guildId, interaction.user.id, channel.id);
 
-        const ticketChannel = await interaction.guild.channels.create({
-          name: `ticket-${ticketId.toLowerCase()}`,
-          type: ChannelType.GuildText,
-          topic: `Ticket ID: ${ticketId} | User: ${interaction.user.username} | Topic: ${topic}`,
-          permissionOverwrites: [
-            {
-              id: guildId,
-              deny: ['ViewChannel'],
-            },
-            {
-              id: userId,
-              allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'],
-            },
-          ],
-        });
+      const embed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle('🎫 Support Ticket')
+        .setDescription('Thank you for creating a support ticket! A staff member will assist you shortly.')
+        .setFooter({ text: 'Click the button below to close this ticket' });
 
-        createTicket(ticketId, guildId, userId, ticketChannel.id);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('ticket_close')
+          .setLabel('Close Ticket')
+          .setStyle(ButtonStyle.Danger)
+      );
 
-        const embed = new EmbedBuilder()
-          .setColor('Green')
-          .setTitle(`🎫 Ticket Dibuat - ${ticketId}`)
-          .setDescription(`Topic: \`${topic.toUpperCase()}\`\n\nTim support akan merespons dalam waktu singkat.`)
-          .addFields(
-            { name: 'Ticket ID', value: ticketId, inline: true },
-            { name: 'Status', value: 'OPEN', inline: true },
-          )
-          .setTimestamp();
+      await channel.send({ content: `\u003c@${interaction.user.id}>`, embeds: [embed], components: [row] });
 
-        const closeButton = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId(`ticket_close_${ticketId}`)
-              .setLabel('Tutup Ticket')
-              .setStyle(ButtonStyle.Danger),
-          );
-
-        await ticketChannel.send({
-          content: `${interaction.user.toString()} Selamat datang di support ticket!`,
-          embeds: [embed],
-          components: [closeButton],
-        });
-
-        const replyEmbed = new EmbedBuilder()
-          .setColor('Blurple')
-          .setTitle('✅ Ticket Berhasil Dibuat')
-          .setDescription(`Channel: ${ticketChannel.toString()}`);
-
-        await interaction.reply({ embeds: [replyEmbed], flags: 64 });
-      } else if (subcommand === 'list') {
-        const tickets = getOpenTickets(interaction.guildId);
-
-        if (tickets.length === 0) {
-          const embed = new EmbedBuilder()
-            .setColor('Yellow')
-            .setTitle('🎫 No Open Tickets')
-            .setDescription('Tidak ada open tickets saat ini');
-          return interaction.reply({ embeds: [embed], flags: 64 });
-        }
-
-        const embed = new EmbedBuilder()
-          .setColor('Blurple')
-          .setTitle(`🎫 Open Tickets (${tickets.length})`)
-          .setTimestamp();
-
-        tickets.forEach((ticket, index) => {
-          const createdAt = new Date(ticket.created_at).toLocaleDateString('id-ID');
-          embed.addFields({
-            name: `${index + 1}. ${ticket.ticket_id}`,
-            value: `**Creator:** <@${ticket.creator_id}>\n**Channel:** <#${ticket.channel_id}>\n**Created:** ${createdAt}`,
-            inline: false,
-          });
-        });
-
-        await interaction.reply({ embeds: [embed], flags: 64 });
-      }
+      await interaction.reply({
+        content: `✓ Ticket created: ${channel}`,
+        flags: 64,
+      });
     } catch (error) {
       console.error('Ticket command error:', error);
-      const embed = new EmbedBuilder()
-        .setColor('Red')
-        .setTitle('❌ Error')
-        .setDescription('Terjadi kesalahan saat membuat ticket.');
-      await interaction.reply({ embeds: [embed], flags: 64 });
+      await interaction.reply({ content: '❌ Failed to create ticket.', flags: 64 });
     }
   },
 };

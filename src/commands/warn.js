@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { addWarning, getWarnings, getGuildSettings } from '../utils/database.js';
-import { autoModerate, checkWarningThreshold } from '../utils/automod.js';
+import { addWarning, getWarnings } from '../utils/database.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -10,67 +9,54 @@ export default {
       option.setName('user').setDescription('User to warn').setRequired(true)
     )
     .addStringOption(option =>
-      option.setName('reason').setDescription('Reason for warning').setRequired(false)
+      option.setName('reason').setDescription('Reason for warning').setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
-  adminOnly: true,
-  async execute(interaction, client) {
-    const member = interaction.options.getMember('user');
-    const reason = interaction.options.getString('reason') || 'No reason provided';
+  moderatorOnly: true,
+  async execute(interaction) {
+    const targetUser = interaction.options.getUser('user');
+    const reason = interaction.options.getString('reason');
 
-    if (member.id === interaction.user.id) {
-      return interaction.reply({
-        content: '❌ You cannot warn yourself.',
-        flags: 64,
-      });
+    if (!targetUser) {
+      return interaction.reply({ content: '❌ User not found.', flags: 64 });
     }
 
-    if (member.user.bot) {
-      return interaction.reply({
-        content: '❌ You cannot warn a bot.',
-        flags: 64,
-      });
+    if (targetUser.id === interaction.user.id) {
+      return interaction.reply({ content: '❌ You cannot warn yourself.', flags: 64 });
     }
 
-    addWarning(interaction.guildId, member.id, interaction.user.id, reason);
+    try {
+      await addWarning(interaction.guildId, targetUser.id, interaction.user.id, reason);
+      const warnings = await getWarnings(interaction.guildId, targetUser.id);
 
-    const threshold = checkWarningThreshold(interaction.guildId, member.id);
+      const embed = new EmbedBuilder()
+        .setColor(0xf39c12)
+        .setTitle('⚠️ Member Warned')
+        .setDescription(`${targetUser.tag} has been warned.`)
+        .addFields(
+          { name: 'Reason', value: reason, inline: false },
+          { name: 'Total Warnings', value: warnings.length.toString(), inline: true }
+        )
+        .setFooter({ text: `By ${interaction.user.username}` });
 
-    let description = `${member.user.tag} has been warned.`;
-    if (threshold) {
-      description += `\n\n⚠️ **Warnings: ${threshold.current}/${threshold.max}**`;
-      if (threshold.willBan) {
-        description += ' - **AUTO-BAN TRIGGERED**';
-      }
+      await interaction.reply({ embeds: [embed] });
+
+      try {
+        await targetUser.send({
+          embeds: [{
+            color: 0xf39c12,
+            title: '⚠️ You have been warned',
+            description: `You received a warning in **${interaction.guild.name}**.`,
+            fields: [
+              { name: 'Reason', value: reason, inline: false },
+              { name: 'Total Warnings', value: warnings.length.toString(), inline: true },
+            ],
+          }],
+        });
+      } catch (error) { }
+    } catch (error) {
+      console.error('Warn command error:', error);
+      await interaction.reply({ content: '❌ Failed to warn member.', flags: 64 });
     }
-
-    const embed = new EmbedBuilder()
-      .setColor(0xf39c12)
-      .setTitle('⚠️ Member Warned')
-      .setDescription(description)
-      .addFields(
-        { name: 'Reason', value: reason, inline: false },
-        threshold && !threshold.willBan ? { name: '⚠️ Next Action', value: `${threshold.nextCount} more warning(s) until auto-ban`, inline: false } : null
-      )
-      .filter(f => f !== null)
-      .setFooter({ text: `By ${interaction.user.username}` });
-
-    await interaction.reply({ embeds: [embed] });
-
-    const dmEmbed = new EmbedBuilder()
-      .setColor(0xf39c12)
-      .setTitle('⚠️ You have been warned!')
-      .setDescription(`You were warned in **${interaction.guild.name}**.`)
-      .addFields(
-        { name: 'Reason', value: reason, inline: false },
-        { name: 'Warned by', value: interaction.user.tag, inline: false },
-        threshold ? { name: 'Warnings', value: `${threshold.current}/${threshold.max}`, inline: true } : null
-      )
-      .filter(f => f !== null);
-
-    member.send({ embeds: [dmEmbed] }).catch(() => {});
-
-    await autoModerate(interaction.guildId, member.id, interaction.user.id, reason, client);
   },
 };
-

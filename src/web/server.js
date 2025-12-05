@@ -3,7 +3,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { authMiddleware, loginAdmin } from './auth.js';
-import { initializeDatabase, getBotStats, getActivityLogs, getLogs } from '../utils/db-postgres.js';
+import { initializeDatabase, logActivity, getActivityLogs, getLogs, getBotStats } from '../utils/db-firebase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

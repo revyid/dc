@@ -1,11 +1,12 @@
 import { REST, Routes, ActivityType, PresenceUpdateStatus } from 'discord.js';
+import { checkAllGuilds } from '../utils/databaseValidator.js';
 
 export default {
   name: 'clientReady',
   once: true,
   async execute(client) {
     console.log(`✓ Logged in as ${client.user.tag}`);
-    
+
     const commands = [];
     client.slashCommands.forEach(cmd => {
       commands.push(cmd.data.toJSON());
@@ -19,6 +20,13 @@ export default {
       console.log('✓ Slash commands registered');
     } catch (error) {
       console.error('Failed to register slash commands:', error);
+    }
+
+    // Auto-check and repair database structure for all guilds
+    try {
+      await checkAllGuilds(client);
+    } catch (error) {
+      console.error('Error during database validation:', error);
     }
 
     // Set bot status to Online with activity
