@@ -2,5 +2,7 @@ packages:
   - .
 
 onlyBuiltDependencies:
+  - '@discordjs/opus'
   - '@firebase/util'
   - protobufjs
+  - youtube-dl-exec

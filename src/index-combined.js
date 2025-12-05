@@ -34,6 +34,7 @@ const client = new Client({
     GatewayIntentBits.GuildModeration,
     GatewayIntentBits.GuildEmojisAndStickers,
     GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildVoiceStates, // Required for voice channel
   ],
 });
 
@@ -63,7 +64,7 @@ const loadInteractions = async () => {
   for (const file of files) {
     const filePath = join(interactionsPath, file);
     const interaction = await import(`file://${filePath}`);
-    
+
     if (interaction.default.customId && interaction.default.execute) {
       client.interactions.set(interaction.default.customId, interaction.default);
       console.log(`✓ Interaction loaded: ${interaction.default.customId instanceof RegExp ? interaction.default.customId.source : interaction.default.customId}`);
